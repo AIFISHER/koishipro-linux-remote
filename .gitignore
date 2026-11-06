@@ -1,0 +1,7 @@
+*.log
+*.tar.gz
+novnc/
+bore
+*.ydk
+*.passwd
+vnc-password.txt
