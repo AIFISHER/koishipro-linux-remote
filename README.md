@@ -34,6 +34,10 @@
    - 打开 Muse 设置 → Permissions（Manage permissions）→ Direct network protocols
    - 找到 `other TCP` 这一行，勾选 / 允许 `other TCP`
 
+   ![Muse 设置 → 直接网络协议 → 其他 TCP 连接（已开启）](images/muse-other-tcp-setting.png)
+
+   上图：`其他 TCP 连接` 这一行开关已打开（蓝色）。
+
 > 这一步要在下载游戏之前做。实测：如果不开，游戏内点「加入游戏」会报「无法连接到主机」。注意：系统层面的端口探测可能给出假的「通」的结果（被运行时拦截器应答后关闭），不要被它误导，以游戏内实际加入为准。
 
 ---
