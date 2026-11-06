@@ -1,3 +1,9 @@
+![手机浏览器里玩 KoishiPro 联网对局](images/play-on-iphone-ipad.png)
+
+**iPhone、iPad 上也能玩免费原版游戏王 YGO 联网游戏**——手机浏览器打开一个链接就能打，不用装 App。
+
+![对局画面](images/duel-board.jpg)
+
 # KoishiPro Linux 远程游玩
 
 在没有显示器的 Linux 服务器上安装 KoishiPro（游戏王全卡模拟器，YGOPro 衍生版），并通过浏览器远程游玩：手机或电脑打开一个网页链接就能打牌，不用在服务器跟前。
