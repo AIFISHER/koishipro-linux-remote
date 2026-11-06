@@ -154,21 +154,40 @@ LC_ALL=C.utf8 LANG=C.utf8 ./ygopro
 
 服务器没有显示器，游戏跑在虚拟显示上，再把画面通过 VNC + 网页暴露出来。
 
+### 安全原则（先读这段）
+
+远程桌面默认必须有密码，网页也只能从本机进。不要用无密码 + 公网监听的写法：
+
+- **VNC 必须输密码。** 不要用 `-SecurityTypes None`。无密码时，任何拿到隧道链接的人都能直接操作桌面，随机端口本身没有身份验证。
+- **noVNC 只监听本机 `127.0.0.1:6080`，不监听 `0.0.0.0:6080`。** 这样网页只能经 bore 隧道进来，不会直接暴露在云电脑的公网网卡上。
+
 ### 结构
 
 ```
-游戏 (Xvnc :99) → VNC 5900 → websockify 6080 → 浏览器 noVNC 页面
+游戏 (Xvnc :99) → VNC 5900（密码认证） → websockify 127.0.0.1:6080 → bore 隧道 → 浏览器 noVNC 页面
 ```
+
+### 先设 VNC 密码
+
+用仓库的 `scripts/set-vnc-password.sh` 生成密码文件（`~/.vnc/passwd`，权限 600，只存加密后的密码，不存明文）：
+
+```bash
+# 交互式输入两次密码（推荐，自己定一个好记的）
+bash scripts/set-vnc-password.sh
+
+# 或生成一个随机 8 位密码并打印出来
+bash scripts/set-vnc-password.sh --random
+```
+
+密码文件生成用的是系统自带的 `vncpasswd`（`tightvncpasswd` 或 `tigervnc-tools` 提供）。没有会自动尝试安装；装不上就报错退出，绝不悄悄回退到无密码。
 
 ### 虚拟显示 + VNC
 
 用 TigerVNC 的 `Xvnc` 同时做 X 服务器和 VNC 服务器（也可以用 Xvfb + x11vnc，效果一样）：
 
 ```bash
-Xvnc :99 -geometry 1024x640 -depth 24 -rfbport 5900 -SecurityTypes None
+Xvnc :99 -geometry 1024x640 -depth 24 -rfbport 5900 -rfbauth ~/.vnc/passwd -SecurityTypes VncAuth
 ```
-
-> 这里用无密码（`-SecurityTypes None`），因为隧道链接本身是随机生成的临时链接，且只在本地监听。如需密码，见 [10. 排错](#10-排错) 的说明。
 
 然后在该显示上启动游戏（务必带 UTF-8 locale）：
 
@@ -178,7 +197,7 @@ DISPLAY=:99 LC_ALL=C.utf8 LANG=C.utf8 ./ygopro
 
 ### 网页客户端
 
-用 websockify + noVNC 把 VNC 转成网页：
+用 websockify + noVNC 把 VNC 转成网页。**只绑本机 `127.0.0.1`，不要写 `0.0.0.0`：**
 
 ```bash
 # 安装 websockify（pip）
@@ -188,11 +207,11 @@ pip install websockify
 curl -L -o novnc.tar.gz https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz
 tar xzf novnc.tar.gz && mv noVNC-1.5.0 novnc
 
-# 启动
-python3 -m websockify --web=./novnc 0.0.0.0:6080 127.0.0.1:5900
+# 启动（只监听本机）
+python3 -m websockify --web=./novnc 127.0.0.1:6080 127.0.0.1:5900
 ```
 
-此时本机打开 `http://127.0.0.1:6080/vnc.html` 应能看到游戏画面。但这只是本机地址，手机打不开，需要第 6 节的公开隧道。
+此时本机打开 `http://127.0.0.1:6080/vnc.html` 应能看到游戏画面（会先提示输入 VNC 密码）。但这只是本机地址，手机打不开，需要第 6 节的公开隧道。
 
 ---
 
@@ -237,7 +256,7 @@ http://bore.pub:<随机端口>/vnc.html?autoconnect=true&resize=scale
 
 ## 7. 开始游玩
 
-1. 打开公开链接（手机或电脑浏览器均可），点「连接」，直接进入游戏画面（无密码）。
+1. 打开公开链接（手机或电脑浏览器均可），点「连接」，输入 VNC 密码（`scripts/set-vnc-password.sh` 设的那个），输对才能进入游戏画面。
 2. 主菜单自上而下：联机模式 / 单人模式 / 录像回放 / 卡组编辑 / 退出。
 3. 点「联机模式」→ 在联机界面选服务器（233 服等）→ 点「加入游戏」进房。
 4. 进房后先确认卡组下拉框里是你想用的卡组，再点「准备」；房主点「开始」后开局。
@@ -257,14 +276,14 @@ http://bore.pub:<随机端口>/vnc.html?autoconnect=true&resize=scale
 重建顺序（仓库 `scripts/setup-remote.sh` 已把下面几步写成一键脚本）：
 
 ```bash
-# 1. 虚拟显示 + VNC
-Xvnc :99 -geometry 1024x640 -depth 24 -rfbport 5900 -SecurityTypes None
+# 1. 虚拟显示 + VNC（密码认证，见第 5 节；不要用 -SecurityTypes None）
+Xvnc :99 -geometry 1024x640 -depth 24 -rfbport 5900 -rfbauth ~/.vnc/passwd -SecurityTypes VncAuth
 
 # 2. 游戏（带 UTF-8 locale，见第 4 节）
 DISPLAY=:99 LC_ALL=C.utf8 LANG=C.utf8 ./ygopro
 
-# 3. 网页客户端
-python3 -m websockify --web=./novnc 0.0.0.0:6080 127.0.0.1:5900
+# 3. 网页客户端（只监听本机 127.0.0.1，不监听 0.0.0.0）
+python3 -m websockify --web=./novnc 127.0.0.1:6080 127.0.0.1:5900
 
 # 4. 中继 + 隧道
 python3 scripts/relay.py &
@@ -279,7 +298,8 @@ python3 scripts/relay.py &
 ## 9. 断开与安全
 
 - **用完就断。** 玩完后按顺序停掉：bore、中继、websockify、Xvnc、游戏。链接失效后别人就进不来了。
-- **不要长期挂着公开链接。** 隧道链接是公开可访问的（无密码），任何人拿到链接都能操作游戏画面。
+- **不要长期挂着公开链接。** 隧道链接是公开可访问的，即使有 VNC 密码，也不要长期挂着；密码和链接都不要发到公开场合。
+- **VNC 密码文件 `~/.vnc/passwd` 会留下来复用**（权限 600，只存加密后的密码）。想换密码就再跑一次 `bash scripts/set-vnc-password.sh`，然后重启 Xvnc。
 - **不要把真实 IP、密码、真实隧道链接写进公开仓库或发到公开场合。** 本仓库只写方法与占位符，不含任何真实地址、密码和访问链接。
 - **不要用 `pkill -f <带空格的命令>` 杀进程。** 如果命令字符串里恰好出现目标进程名，会把执行命令的 shell 自己也杀掉。杀 websockify 要用 `pkill -f "websockif[y]"` 这类写法，且整条命令里不能再出现目标词本身。
 
@@ -293,7 +313,7 @@ python3 scripts/relay.py &
 | 游戏内「加入游戏」报无法连接到主机 | 出站 TCP 被沙箱/防火墙拦截。检查运行环境的网络权限设置，允许游戏的出站连接；重试一次（首次连接可能因授权超时失败，授权通过后重试即可） |
 | Cloudflare 快速隧道 403 | 换 bore（见第 6 节） |
 | bore 连不上 bore 服务器 | bore 自身 socket 在受限网络下超时。用 `scripts/relay.py` 本地中继（见第 6 节） |
-| 打开链接显示 noVNC 但报 `Authentication failure` | VNC 密码不匹配（密码文件生成方式不对），或触发了 VNC 的 IP 黑名单。最省事的办法是去掉 VNC 密码（`-SecurityTypes None`），只靠随机隧道链接做访问控制；也可以重启 VNC 服务清掉黑名单 |
+| 打开链接显示 noVNC 但报 `Authentication failure` | VNC 密码不对，或触发了 VNC 的 IP 黑名单（多次输错密码会封 IP）。重新设密码：`bash scripts/set-vnc-password.sh`，再重启 Xvnc；也可以重启 VNC 服务清掉黑名单。**不要用 `-SecurityTypes None` 绕过**——那等于把桌面公开给任何拿到链接的人 |
 | 重启后链接打不开 | 虚拟机重启会杀掉全部进程，按第 8 节重建 |
 | 端口已被占用 | 上一次的进程没杀干净，用 `ss -tlnp` 查看并杀掉残留进程再启动 |
 
